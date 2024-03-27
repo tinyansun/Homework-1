@@ -14,12 +14,11 @@ interface IERC20 {
 }
 
 contract LiaoToken is IERC20 {
-    // TODO: you might need to declare several state variable here
-    mapping(address account => uint256) private _balances;
-    mapping(address account => bool) isClaim;
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+    mapping(address => bool) private isClaim;
 
     uint256 private _totalSupply;
-
     string private _name;
     string private _symbol;
 
@@ -42,35 +41,54 @@ contract LiaoToken is IERC20 {
         return _symbol;
     }
 
-    function totalSupply() external view returns (uint256) {
+    function totalSupply() external view override returns (uint256) {
         return _totalSupply;
     }
 
-    function balanceOf(address account) external view returns (uint256) {
+    function balanceOf(address account) external view override returns (uint256) {
         return _balances[account];
     }
 
     function claim() external returns (bool) {
-        if (isClaim[msg.sender]) revert();
+        require(!isClaim[msg.sender], "Already claimed");
         _balances[msg.sender] += 1 ether;
         _totalSupply += 1 ether;
+        isClaim[msg.sender] = true;
         emit Claim(msg.sender, 1 ether);
         return true;
     }
 
-    function transfer(address to, uint256 amount) external returns (bool) {
-        // TODO: please add your implementaiton here
+    function transfer(address to, uint256 amount) external override returns (bool) {
+        require(to != address(0), "ERC20: transfer to the zero address");
+        require(_balances[msg.sender] >= amount, "ERC20: transfer amount exceeds balance");
+        
+        _balances[msg.sender] -= amount;
+        _balances[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
     }
 
-    function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        // TODO: please add your implementaiton here
+    function transferFrom(address from, address to, uint256 value) external override returns (bool) {
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
+        require(value <= _balances[from], "ERC20: transfer amount exceeds balance");
+        require(value <= _allowances[from][msg.sender], "ERC20: transfer amount exceeds allowance");
+
+        _balances[from] -= value;
+        _balances[to] += value;
+        _allowances[from][msg.sender] -= value;
+        emit Transfer(from, to, value);
+        return true;
     }
 
-    function approve(address spender, uint256 amount) external returns (bool) {
-        // TODO: please add your implementaiton here
+    function approve(address spender, uint256 amount) external override returns (bool) {
+        require(spender != address(0), "ERC20: approve to the zero address");
+        _allowances[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
     }
 
-    function allowance(address owner, address spender) public view returns (uint256) {
-        // TODO: please add your implementaiton here
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
     }
 }
